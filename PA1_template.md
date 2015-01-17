@@ -1,0 +1,199 @@
+---
+title: 'Reprod Research Peer Graded Assignment #1'
+author: "Scott Schrems"
+date: "January 16, 2015"
+output: html_document
+---
+
+Hello my friend.  Welcome to my first R Markdown document... this is where the magic happens!
+
+First, let's download the data from:
+
+https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip then we will unzip it.   
+
+
+```r
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+dload <- download.file(url, "repdata-data-activity.zip", method = "curl")
+unzip("repdata-data-activity.zip")
+```
+
+Now that we've got the data to our local computer, let's see if we can turn this chicken shit
+into chicken salad!      
+
+First, we are going to put the full data set into a data frame then get
+rid of the bad observations by subsetting the data frame.  Once we get finished with these steps,
+we are going to split the data set on the date variable and then calculate the steps per day.
+
+
+```r
+OriginalData <- read.csv("activity.csv")
+WorkingData <- subset(OriginalData, complete.cases(OriginalData) == TRUE)
+DataSplit <- split(WorkingData, WorkingData$date, drop = TRUE)
+StepsPerDay <- sapply(DataSplit, function(x) sum(x$steps))
+```
+
+Now that we the data properly setup, let's plot out a histogram:
+
+
+```r
+hist(StepsPerDay, main = "Total Steps per Day", xlab = "# Steps", ylab = "Freq", breaks = 20)
+```
+
+![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3-1.png) 
+
+Now you are sitting there wondering, what the heck is the mean and the median of this darn thing?
+I hear you!  The mean is and the median are both in the summary of the data:
+
+
+```r
+summary(StepsPerDay)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##      41    8841   10760   10770   13290   21190
+```
+
+Now we want to figure out the average number of steps over the 5 minute intervals.  We are going   
+to use a similar approach as before, only instead of splitting the data on the dates, we are    
+going to split it on the 5 minute interval field and rather than sum all of the values, we are   
+going to take the mean of them.      
+
+
+```r
+IntSplit <- split(WorkingData, WorkingData$interval, drop = TRUE)
+IntAvg <- sapply(IntSplit, function(x) mean(x$steps))
+plot(IntAvg, type ="l", main = "Avg Steps Over 5 Min Intervals", ylab = "Avg Steps")
+```
+
+![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5-1.png) 
+    
+We are now supposed to find out, on average, which 5 minute interval contains the maximum number   
+of steps.  
+
+
+```r
+names(which.max(IntAvg))
+```
+
+```
+## [1] "835"
+```
+
+8:35 seems like the time that people take the most steps!  (At least according to this data)    
+Go figure.
+      
+Now we are going to tackle some missing values.  I would like to first figure out what values are missing and replace them with the average value for the rest of the data set.  Not perfect, but hey, I'm no statistician (yet).   
+
+I'd like to go back to the original data that was loaded and use that to figure out what data is missing by subsetting it.  
+
+
+```r
+MissStep <- is.na(OriginalData$steps)
+summary(MissStep)
+```
+
+```
+##    Mode   FALSE    TRUE    NA's 
+## logical   15264    2304       0
+```
+
+As you can see, MissStep is TRUE for 2,304 values, which means that steps is not properly populated in the original data set.
+
+Now let's replace the missing values with the average of the values for the rest of the data set.  We are going to use the average from the IntAvg data set to do this and we are going to start with the original data right from the .csv file.
+
+
+```r
+NewWorkingData <- OriginalData
+NewWorkingData$steps[is.na(NewWorkingData$steps)] <- mean(IntAvg)
+```
+   
+We now have a data set that contains all of the instances of the "steps" field populated.
+   
+
+```r
+summary(NewWorkingData)
+```
+
+```
+##      steps                date          interval     
+##  Min.   :  0.00   2012-10-01:  288   Min.   :   0.0  
+##  1st Qu.:  0.00   2012-10-02:  288   1st Qu.: 588.8  
+##  Median :  0.00   2012-10-03:  288   Median :1177.5  
+##  Mean   : 37.38   2012-10-04:  288   Mean   :1177.5  
+##  3rd Qu.: 37.38   2012-10-05:  288   3rd Qu.:1766.2  
+##  Max.   :806.00   2012-10-06:  288   Max.   :2355.0  
+##                   (Other)   :15840
+```
+
+Now we need to go back and calculate the total number of steps taken per day.  We did this previously, so we are going to reuse the code.
+   
+
+```r
+DataSplit2 <- split(NewWorkingData, NewWorkingData$date, drop = TRUE)
+StepsPerDay2 <- sapply(DataSplit2, function(x) sum(x$steps))
+
+hist(StepsPerDay2, main = "Total Steps per Day (Modified Data)", xlab = "# Steps", ylab = "Freq", breaks = 20)
+```
+
+![plot of chunk unnamed-chunk-10](figure/unnamed-chunk-10-1.png) 
+
+We now need to calculate the mean and the median of the updated data.  Those numbers are below:   
+
+```r
+summary(StepsPerDay2)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##      41    9819   10770   10770   12810   21190
+```
+   
+Now we are going to tackle the "Weekend vs. Weekday" question about the number of steps using the modified data.  First we need to turn our date into a date that R will understand so we can use the advanced date functions available!
+
+
+```r
+NewWorkingData$date <- as.Date(strptime(NewWorkingData$date, format ="%Y-%m-%d"))
+NewWorkingData$day <- weekdays(NewWorkingData$date)
+NewWorkingData$weekend <- substring(NewWorkingData$day, 1, 1)
+NewWorkingData$wkend[NewWorkingData$weekend == "S"] <- 1
+NewWorkingData$wkend[NewWorkingData$weekend != "S"] <- 0
+```
+    
+Whew!  *wipes brow*
+  
+Now let us construct a plot that will show us what we want to see with respct to the Weekend vs. Weekday.
+
+
+```r
+par(mfrow = c(1,1))
+with(NewWorkingData, plot(steps ~ interval, type = "n", main = "Weekend vs. Weekday"))
+with(NewWorkingData[NewWorkingData$wkend == 1,], lines(steps ~ interval, type ="l", col = "red"))
+with(NewWorkingData[NewWorkingData$wkend == 0,], lines(steps ~ interval, type ="l", col = "blue"))
+legend("topleft", lty=c(1,1), col = c("blue", "red"), legend = c("Weekend", "Weekday"), seg.len = 3)
+```
+
+![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-1.png) 
+
+Perhaps this graph would be a bit better if the method for filling in the blanks were a bit more robust.  I think filing it in with the average might be messing with it a tiny bit.    
+
+Thank you.    
+
+The End   
+
+
+
+
+
+      
+
+
+
+
+
+
+
+
+
+
